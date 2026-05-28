@@ -10,5 +10,17 @@
     "canvas": "^2.11.2",
     "discord.js": "^14.15.3",
     "dotenv": "^16.4.5"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asiaxnetwork-dev/asiaxnetwork-discord-bot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/asiaxnetwork-dev/asiaxnetwork-discord-bot/issues"
+  },
+  "homepage": "https://github.com/asiaxnetwork-dev/asiaxnetwork-discord-bot#readme"
 }

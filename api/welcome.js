@@ -1,4 +1,4 @@
-import { createCanvas, loadImage } from "canvas";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
@@ -10,13 +10,12 @@ export default async function handler(req, res) {
 
   // Slash command: /welcome <user>
   if (interaction.type === 2 && interaction.data.name === "welcome") {
-    // Acknowledge immediately
     res.status(200).json({ type: 5 });
 
     try {
       await handleWelcome(interaction);
     } catch (err) {
-      console.error("Error handling /welcome:", err);
+      console.error("Error:", err);
       await sendFollowup(interaction.token, "❌ Something went wrong.");
     }
     return;
@@ -30,44 +29,26 @@ async function handleWelcome(interaction) {
   const WELCOME_CHANNEL_ID = process.env.WELCOME_CHANNEL_ID;
   const BG_URL = process.env.WELCOME_BACKGROUND_URL || "";
 
-  // Extract the target user from the command options
   const userOption = data.options?.find((opt) => opt.name === "user");
-  if (!userOption) {
-    return sendFollowup(
-      token,
-      "❌ You must mention a user, e.g. `/welcome @username`",
-    );
-  }
+  if (!userOption) return sendFollowup(token, "❌ You must mention a user.");
 
   const targetUserId = userOption.value;
-  const member = interaction.member; // The command invoker – we need guild member info, but we need the target member object
 
-  // The interaction may not include the target member's full object, so we fetch it via REST
-  const guild = interaction.guild_id;
-  if (!guild)
-    return sendFollowup(token, "❌ This command only works in servers.");
-
-  // Fetch the target member from the guild
   const memberRes = await fetch(
-    `https://discord.com/api/v10/guilds/${guild}/members/${targetUserId}`,
-    {
-      headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
-    },
+    `https://discord.com/api/v10/guilds/${guild_id}/members/${targetUserId}`,
+    { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` } },
   );
-
-  if (!memberRes.ok) {
-    return sendFollowup(token, "❌ Could not find that member in this server.");
-  }
+  if (!memberRes.ok)
+    return sendFollowup(token, "❌ Could not find that member.");
 
   const targetMember = await memberRes.json();
   const username = targetMember.user.username;
   const avatarURL = targetMember.user.avatar
     ? `https://cdn.discordapp.com/avatars/${targetMember.user.id}/${targetMember.user.avatar}.png?size=256`
-    : `https://cdn.discordapp.com/embed/avatars/${Number(targetMember.user.discriminator || 0) % 5}.png`;
+    : `https://cdn.discordapp.com/embed/avatars/${(targetMember.user.discriminator || "0") % 5}.png`;
 
-  // Get guild member count (optional)
   const guildRes = await fetch(
-    `https://discord.com/api/v10/guilds/${guild}?with_counts=true`,
+    `https://discord.com/api/v10/guilds/${guild_id}?with_counts=true`,
     {
       headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
     },
@@ -76,7 +57,6 @@ async function handleWelcome(interaction) {
   const memberCount = guildData?.approximate_member_count ?? "?";
   const serverName = guildData?.name ?? "Our Server";
 
-  // Generate the welcome banner
   const banner = await generateBanner(
     avatarURL,
     username,
@@ -85,7 +65,6 @@ async function handleWelcome(interaction) {
     BG_URL,
   );
 
-  // Send the welcome message to the configured channel
   await fetch(
     `https://discord.com/api/v10/channels/${WELCOME_CHANNEL_ID}/messages`,
     {
@@ -97,10 +76,7 @@ async function handleWelcome(interaction) {
       body: JSON.stringify({
         content: `👋 Welcome <@${targetUserId}>!`,
         embeds: [
-          {
-            image: { url: "attachment://welcome.png" },
-            color: 0x5865f2,
-          },
+          { image: { url: "attachment://welcome.png" }, color: 0x5865f2 },
         ],
         files: [
           {
@@ -143,18 +119,11 @@ async function generateBanner(
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.save();
-  const avatarSize = 120;
-  const avatarX = 60;
-  const avatarY = canvas.height / 2 - avatarSize / 2;
+  const avatarSize = 120,
+    avatarX = 60,
+    avatarY = canvas.height / 2 - 60;
   ctx.beginPath();
-  ctx.arc(
-    avatarX + avatarSize / 2,
-    avatarY + avatarSize / 2,
-    avatarSize / 2,
-    0,
-    Math.PI * 2,
-    true,
-  );
+  ctx.arc(avatarX + 60, avatarY + 60, 60, 0, Math.PI * 2, true);
   ctx.clip();
   const avatar = await loadImage(avatarURL);
   ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
@@ -163,11 +132,9 @@ async function generateBanner(
   ctx.font = 'bold 36px "Segoe UI", sans-serif';
   ctx.fillStyle = "#ffffff";
   ctx.fillText(`Welcome, ${username}!`, 220, 110);
-
   ctx.font = '24px "Segoe UI", sans-serif';
   ctx.fillStyle = "#dddddd";
   ctx.fillText(`You are the ${memberCount}th member!`, 220, 160);
-
   ctx.font = '20px "Segoe UI", sans-serif';
   ctx.fillStyle = "#aaaaaa";
   ctx.fillText(serverName, 220, 200);
